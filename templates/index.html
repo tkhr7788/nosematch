@@ -1,14 +1,30 @@
 <!doctype html><html><head>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <title>イベント一覧</title></head><body class="p-4">
-    <h1>イベント一覧</h1>
-    <a class="btn btn-primary mb-3" href="/events/new">＋ 新しいイベント</a>
-    <ul class="list-group">
-      {% for e in events %}
-        <li class="list-group-item">
-          <a href="/events/{{e.id}}">{{e.title}} ({{e.date.strftime('%Y-%m-%d %H:%M')}})</a>
-        </li>
-      {% endfor %}
-    </ul>
+    <title>のりとも - 配車アプリ</title></head><body class="p-4">
+    
+    <div class="container">
+      <h1 class="mb-4 text-center">のりとも</h1>
+    
+      <!-- ログインフォーム（任意） -->
+      <div class="card p-4 mb-4">
+        <h4>ログイン（任意）</h4>
+        <form>
+          <div class="mb-3">
+            <input type="text" class="form-control" placeholder="あなたの名前" required>
+          </div>
+          <div class="mb-3">
+            <input type="text" class="form-control" placeholder="グループコード（任意）">
+          </div>
+          <button class="btn btn-success w-100" disabled>ログイン（未実装）</button>
+        </form>
+        <small class="text-muted mt-2 d-block">※今はログインしなくても使えます</small>
+      </div>
+    
+      <!-- イベント一覧に進むボタン -->
+      <div class="d-grid">
+        <a href="/events" class="btn btn-primary btn-lg">🚗 イベント一覧を見る</a>
+      </div>
+    </div>
+    
     </body></html>
     
