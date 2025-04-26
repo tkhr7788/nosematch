@@ -1,0 +1,23 @@
+<!doctype html><html><head>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>管理者ビュー</title></head><body class="p-4">
+  <h1>管理者ビュー : {{ev.title}}</h1>
+  <table class="table table-sm">
+    <tr><th>名前</th><th>子ども</th><th>定員</th><th>行き</th><th>帰り</th></tr>
+    {% for r in rsvps %}
+      <tr><td>{{r.name}}</td><td>{{r.child_cnt}}</td><td>{{r.capacity}}</td>
+          <td>{{"◯" if r.go_ok else "×"}}</td><td>{{"◯" if r.back_ok else "×"}}</td></tr>
+    {% endfor %}
+  </table>
+  <button class="btn btn-danger" onclick="fetch('/api/plan/{{ev.id}}',{method:'POST'}).then(()=>location.reload())">
+    🚐 配車プラン生成
+  </button>
+  
+  <h2 class="mt-4">回収プラン</h2>
+  {% for p in plans %}
+    <h5>{{ "行き" if p.direction=='go' else "帰り" }}</h5>
+    <pre>{{p.body}}</pre>
+  {% endfor %}
+  <a href="/events/{{ev.id}}/plan">公開ページを見る</a>
+  </body></html>
+  

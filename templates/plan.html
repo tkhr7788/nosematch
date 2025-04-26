@@ -1,0 +1,10 @@
+<!doctype html><html><head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>回収プラン</title></head><body class="p-4">
+    <h1>回収プラン : {{ev.title}}</h1>
+    {% for p in plans %}
+      <h4>{{ "行き" if p.direction=='go' else "帰り" }}</h4>
+      <pre>{{p.body}}</pre>
+    {% endfor %}
+    </body></html>
+    
