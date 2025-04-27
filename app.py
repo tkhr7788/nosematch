@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-from models import db, Event, RSVP, Plan
+from models import db, User, Event, RSVP, Plan
 from datetime import datetime
 import requests
 import urllib.parse
@@ -8,10 +8,9 @@ from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///noritomo.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "supersecretkey"  # ★セッションのために追加
+app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
-# 住所から緯度・経度を取得する関数
 def geocode_address(address):
     base_url = "https://nominatim.openstreetmap.org/search?"
     params = {
@@ -31,7 +30,6 @@ def geocode_address(address):
         print("Geocode failed:", e)
     return None, None
 
-# OR-Tools最短ルート作成
 def make_route(rsvps, spot_lat, spot_lng):
     points = [(r.lat, r.lng) for r in rsvps if r.lat and r.lng]
     points.append((spot_lat, spot_lng))
@@ -66,19 +64,45 @@ def make_route(rsvps, spot_lat, spot_lng):
     else:
         return []
 
-# ---------- ルーティング ----------
-@app.route("/", methods=["GET", "POST"])
-def index():
+# ---------- ログイン・新規登録 ----------
+@app.route("/")
+def root():
+    return redirect(url_for("login"))
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
     if request.method == "POST":
-        session["username"] = request.form["username"]
-        return redirect(url_for("event_list"))
-    return render_template("index.html")
+        username = request.form["username"]
+        password = request.form["password"]
+        user = User.query.filter_by(username=username, password=password).first()
+        if user:
+            session["user_id"] = user.id
+            session["username"] = user.username
+            session["role"] = user.role
+            return redirect(url_for("event_list"))
+        else:
+            return render_template("login.html", error="ログイン失敗。IDまたはパスワードが違います。")
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        if User.query.filter_by(username=username).first():
+            return render_template("register.html", error="このIDは既に使われています。")
+        user = User(username=username, password=password, role="user")
+        db.session.add(user)
+        db.session.commit()
+        return redirect(url_for("login"))
+    return render_template("register.html")
 
 @app.route("/logout")
 def logout():
-    session.pop("username", None)
-    return redirect(url_for("index"))
+    session.clear()
+    return redirect(url_for("login"))
 
+# ---------- 配車システム本体 ----------
 @app.route("/events")
 def event_list():
     events = Event.query.order_by(Event.date.desc()).all()
@@ -119,8 +143,7 @@ def answer(eid):
         db.session.commit()
         return redirect(url_for("thanks", eid=eid))
     rsvps = RSVP.query.filter_by(event_id=eid).all()
-    username = session.get("username", "")
-    return render_template("answer.html", ev=ev, rsvps=rsvps, username=username)
+    return render_template("answer.html", ev=ev, rsvps=rsvps)
 
 @app.route("/events/<int:eid>/thanks")
 def thanks(eid):
