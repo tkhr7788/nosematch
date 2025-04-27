@@ -22,10 +22,9 @@ class RSVP(db.Model):
     lng       = db.Column(db.Float)
     children  = db.Column(db.String)
     child_cnt = db.Column(db.Integer)
-    capacity  = db.Column(db.Integer)
-    go_ok     = db.Column(db.Boolean)
-    back_ok   = db.Column(db.Boolean)
-    pickup_only = db.Column(db.Boolean)
+    go_capacity = db.Column(db.Integer)   # ←ここ追加
+    back_capacity = db.Column(db.Integer) # ←ここ追加
+
 
 class Plan(db.Model):
     id = db.Column(db.Integer, primary_key=True)

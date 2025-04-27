@@ -31,7 +31,9 @@ def geocode_address(address):
     return None, None
 
 def make_route(rsvps, spot_lat, spot_lng):
-    points = [(r.lat, r.lng) for r in rsvps if r.lat and r.lng]
+    # 緯度・経度が両方存在する人だけを対象にする
+    valid_rsvps = [r for r in rsvps if r.lat is not None and r.lng is not None]
+    points = [(r.lat, r.lng) for r in valid_rsvps]
     points.append((spot_lat, spot_lng))
 
     def calc_dist(p1, p2):
@@ -63,6 +65,33 @@ def make_route(rsvps, spot_lat, spot_lng):
         return order
     else:
         return []
+def make_carpool(rsvps):
+    # 緯度・経度があって、行きに車を出せる人だけ対象
+    drivers = [r for r in rsvps if r.lat is not None and r.lng is not None and r.go_capacity > 0]
+    passengers = [r for r in rsvps if r.lat is not None and r.lng is not None]
+
+    if not drivers:
+        return "車を出せる人がいません。"
+
+    # ドライバーを位置情報順に並べる（より現実的には、正確な距離で並べるのも可能）
+    drivers.sort(key=lambda r: (r.lat, r.lng))
+
+    car_assignments = {}  # {ドライバー名: [乗せる子供たちのリスト]}
+
+    driver_index = 0
+    for p in passengers:
+        while True:
+            driver = drivers[driver_index % len(drivers)]
+            if driver.name not in car_assignments:
+                car_assignments[driver.name] = []
+            if len(car_assignments[driver.name]) < driver.go_capacity:
+                car_assignments[driver.name].append(p.name)
+                break
+            else:
+                driver_index += 1
+
+    return car_assignments
+
 
 # ---------- ログイン・新規登録 ----------
 @app.route("/")
@@ -134,10 +163,8 @@ def answer(eid):
             lng=lng,
             children=request.form["children"],
             child_cnt=int(request.form["child_cnt"]),
-            capacity=int(request.form["capacity"]),
-            go_ok=bool(request.form.get("go_ok")),
-            back_ok=bool(request.form.get("back_ok")),
-            pickup_only=bool(request.form.get("pickup_only")),
+            go_capacity=int(request.form["go_capacity"]),
+            back_capacity=int(request.form["back_capacity"]),
         )
         db.session.add(r)
         db.session.commit()
@@ -163,18 +190,31 @@ def generate_plan(eid):
 
     spot_lat, spot_lng = geocode_address(ev.spot)
 
-    order = make_route(rsvps, spot_lat, spot_lng)
+    if spot_lat is None or spot_lng is None:
+        return {"error": "集合スポットの位置情報が取得できませんでした。"}, 400
 
-    names = [r.name for r in rsvps]
-    names.append("集合スポット")
+    # ここから配車決める！
+    carpool = make_carpool(rsvps)
 
-    route_text = " → ".join([names[i] for i in order])
+    # carpool = {ドライバー: [乗る子供, 子供, ...]} の形になっている
+    route_text = ""
+    for driver, kids in carpool.items():
+        route_text += f"{driver}の車: {', '.join(kids)}\n"
 
+    # 行きと帰りに同じプランを保存する（今は行きだけでテストOK）
     for d in ("go", "back"):
         Plan.query.filter_by(event_id=eid, direction=d).delete()
         db.session.add(Plan(event_id=eid, direction=d, body=route_text))
     db.session.commit()
+
     return {"ok": True}
+
+@app.route("/plans")
+def plan_list():
+    events = Event.query.order_by(Event.date.desc()).all()
+    plans = Plan.query.all()
+    return render_template("plans.html", events=events, plans=plans)
+
 
 if __name__ == "__main__":
     with app.app_context():
