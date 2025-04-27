@@ -1,0 +1,102 @@
+/* タイトル */
+h1.app-title {
+    font-size: 48px; /* ← 大きく目立たせた */
+    font-weight: 700;
+    margin-bottom: 1.5rem; /
+}
+
+/* 説明文 */
+p.app-description {
+    font-size: 18px;
+    max-width: 500px;
+    margin-top: 1.5rem;
+    margin-bottom: 2rem; /* ← ここでカードとの隙間を広げた */
+}
+
+/* リンクの見た目 */
+.login-container a.link-secondary {
+    font-size: 14px;
+    text-decoration: none;
+}
+.login-container a.link-secondary:hover {
+    text-decoration: underline;
+}
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+/* ヘッダー */
+.header {
+    position: relative;
+    padding: 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+}
+
+.app-title {
+    margin: 0;
+    font-size: 32px;
+}
+
+.logout-btn {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 14px;
+    color: #333;
+    text-decoration: none;
+    border: 1px solid #333;
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+
+.logout-btn:hover {
+    background: #333;
+    color: #fff;
+}
+
+/* メイン */
+.main-content {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.welcome-message {
+    font-size: 20px;
+    margin-bottom: 40px;
+}
+
+.event-button {
+    display: inline-block;
+    text-align: center;
+}
+
+.icon-box {
+    width: 100px;
+    height: 100px;
+    border: 2px solid #333;
+    margin: 0 auto 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+}
+
+.btn-primary {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 12px 24px;
+    background-color: #007bff;
+    color: white;
+    font-size: 16px;
+    text-decoration: none;
+    border-radius: 6px;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
