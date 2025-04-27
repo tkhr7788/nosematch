@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>のせマッチ - 一般TOP</title>
+
+    <!-- Flask用にCSSをurl_forで読み込む -->
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- ヘッダー -->
+    <header class="header">
+        <h1 class="app-title">のせマッチ</h1>
+        <a href="{{ url_for('logout') }}" class="logout-btn">ログアウト</a>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+        <p class="welcome-message">ようこそ {{ username }} さん</p>
+
+        <div class="event-button">
+            <div class="icon-box">□</div>
+            <a href="{{ url_for('event_list') }}" class="btn-primary">イベント一覧を見る</a>
+        </div>
+    </main>
+
+</body>
+</html>

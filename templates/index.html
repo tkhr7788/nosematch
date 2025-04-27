@@ -1,30 +1,79 @@
-<!doctype html><html><head>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <title>のりとも - 配車アプリ</title></head><body class="p-4">
-    
-    <div class="container">
-      <h1 class="mb-4 text-center">のりとも</h1>
-    
-      <!-- ログインフォーム（任意） -->
-      <div class="card p-4 mb-4">
-        <h4>ログイン（任意）</h4>
-        <form>
-          <div class="mb-3">
-            <input type="text" class="form-control" placeholder="あなたの名前" required>
-          </div>
-          <div class="mb-3">
-            <input type="text" class="form-control" placeholder="グループコード（任意）">
-          </div>
-          <button class="btn btn-success w-100" disabled>ログイン（未実装）</button>
-        </form>
-        <small class="text-muted mt-2 d-block">※今はログインしなくても使えます</small>
-      </div>
-    
-      <!-- イベント一覧に進むボタン -->
-      <div class="d-grid">
-        <a href="/events" class="btn btn-primary btn-lg">🚗 イベント一覧を見る</a>
-      </div>
-    </div>
-    
-    </body></html>
-    
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+/* ヘッダー */
+.header {
+  position: relative;
+  padding: 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 32px;
+}
+
+.logout-btn {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  font-size: 14px;
+  color: #333;
+  text-decoration: none;
+  border: 1px solid #333;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+.logout-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* メイン */
+.main-content {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.welcome-message {
+  font-size: 20px;
+  margin-bottom: 40px;
+}
+
+.event-button {
+  display: inline-block;
+  text-align: center;
+}
+
+.icon-box {
+  width: 100px;
+  height: 100px;
+  border: 2px solid #333;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.btn-primary {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 12px 24px;
+  background-color: #007bff;
+  color: white;
+  font-size: 16px;
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
