@@ -1,0 +1,118 @@
+/* 全体スタイル */
+body {
+    background: #f2f2f2;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* コンテナ */
+.container {
+    max-width: 400px;
+    width: 90%;
+    margin: 60px auto;
+    background: #ffffff;
+    padding: 0 30px 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* アプリ名の帯 */
+.app-header {
+    background-color: #dff0d8; /* やさしい緑系 */
+    padding: 20px 0;
+    text-align: center;
+}
+
+/* アプリ名 */
+.app-title {
+    font-size: 28px;
+    color: #000000; /* 黒文字 */
+    margin: 0;
+}
+
+/* アプリ説明 */
+.app-description {
+    font-size: 16px;
+    color: #666;
+    margin: 30px 0;
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* 入力グループ */
+.input-group {
+    text-align: left;
+    margin-bottom: 30px;
+    position: relative;
+}
+
+/* ラベル */
+.input-label {
+    display: block;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+/* 入力フィールド */
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+/* ログインボタン */
+.login-button {
+    width: 100%;
+    background-color: #4CAF50; /* グリーン系 */
+    color: white;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* ログインボタンのホバー */
+.login-button:hover {
+    background-color: #45a049;
+}
+
+/* 新規登録ボタン（ログインと同じ色） */
+.register-button {
+    width: 100%;
+    background-color: #4CAF50; /* グリーン系 */
+    color: white;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* 新規登録ボタンのホバー */
+.register-button:hover {
+    background-color: #45a049;
+}
+
+/* スマホ対応（レスポンシブ） */
+@media screen and (max-width: 480px) {
+    .container {
+        margin: 30px auto;
+        padding: 0 20px 20px;
+    }
+    .app-title {
+        font-size: 24px;
+    }
+    .app-description {
+        font-size: 14px;
+    }
+}
