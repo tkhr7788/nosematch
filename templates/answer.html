@@ -9,6 +9,12 @@
 <body class="p-4">
 
     <h1>{{ ev.title }}</h1> <!-- イベント名を表示 -->
+    {% if error %}
+<div class="alert alert-danger" role="alert">
+    {{ error }}
+</div>
+{% endif %}
+
 
     <form method="post" class="vstack gap-3 mb-4">
         <input name="name" class="form-control" placeholder="保護者名" required>
@@ -30,12 +36,12 @@
     </form>
 
     <h2>回答一覧</h2>
-
     <table class="table">
         <thead>
             <tr>
                 <th>名前</th>
                 <th>子ども</th>
+                <th>住所</th>
                 <th>行き</th>
                 <th>帰り</th>
             </tr>
@@ -45,6 +51,7 @@
             <tr>
                 <td>{{ r.name }}</td>
                 <td>{{ r.children }}</td>
+                <td>{{ r.address }}</td> <!-- ここを追加 -->
                 <td>{{ r.go_capacity }}</td>
                 <td>{{ r.back_capacity }}</td>
             </tr>

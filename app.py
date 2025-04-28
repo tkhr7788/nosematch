@@ -4,6 +4,8 @@ from datetime import datetime
 import requests
 import urllib.parse
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+import random 
+import requests 
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///noritomo.db"
@@ -11,23 +13,20 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
+# ここにあなたのAPIキーを貼り付け！
+GOOGLE_MAPS_API_KEY = "AIzaSyDb68LR-jJtG_QccO8RDLjZY-9408SpLzE"
+
 def geocode_address(address):
-    base_url = "https://nominatim.openstreetmap.org/search?"
-    params = {
-        "q": address,
-        "format": "json",
-        "limit": 1,
-    }
-    headers = {"User-Agent": "noritomo/1.0"}
-    url = base_url + urllib.parse.urlencode(params)
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(address)}&key={GOOGLE_MAPS_API_KEY}"
     try:
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, timeout=5)
         res.raise_for_status()
         data = res.json()
-        if data:
-            return float(data[0]["lat"]), float(data[0]["lon"])
+        if data['status'] == 'OK':
+            location = data['results'][0]['geometry']['location']
+            return location['lat'], location['lng']
     except Exception as e:
-        print("Geocode failed:", e)
+        print("Google Geocode failed:", e)
     return None, None
 
 def make_route(rsvps, spot_lat, spot_lng):
@@ -69,6 +68,7 @@ def make_carpool(rsvps):
     # 緯度・経度があって、行きに車を出せる人だけ対象
     drivers = [r for r in rsvps if r.lat is not None and r.lng is not None and r.go_capacity > 0]
     passengers = [r for r in rsvps if r.lat is not None and r.lng is not None]
+    random.shuffle(passengers)
 
     if not drivers:
         return "車を出せる人がいません。"
@@ -155,6 +155,11 @@ def answer(eid):
     ev = Event.query.get_or_404(eid)
     if request.method == "POST":
         lat, lng = geocode_address(request.form["address"])
+        
+        # ここでチェック追加！
+        if lat is None or lng is None:
+            return render_template("answer.html", ev=ev, rsvps=RSVP.query.filter_by(event_id=eid).all(), error="住所が正しく認識できませんでした。もう一度確認してください。")
+
         r = RSVP(
             event_id=eid,
             name=request.form["name"],
@@ -169,8 +174,10 @@ def answer(eid):
         db.session.add(r)
         db.session.commit()
         return redirect(url_for("thanks", eid=eid))
+
     rsvps = RSVP.query.filter_by(event_id=eid).all()
     return render_template("answer.html", ev=ev, rsvps=rsvps)
+
 
 @app.route("/events/<int:eid>/thanks")
 def thanks(eid):
@@ -183,6 +190,26 @@ def admin(eid):
     plans = Plan.query.filter_by(event_id=eid).all()
     return render_template("admin.html", ev=ev, rsvps=rsvps, plans=plans)
 
+def calculate_center(points):
+    lat_sum = sum(p[0] for p in points)
+    lng_sum = sum(p[1] for p in points)
+    n = len(points)
+    return (lat_sum / n, lng_sum / n)
+
+def reverse_geocode(lat, lng):
+    url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lng}"
+    headers = {"User-Agent": "noritomo/1.0"}
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        city = data.get('address', {}).get('city', '')
+        town = data.get('address', {}).get('suburb', '')
+        return f"{city}{town}周辺"
+    except Exception as e:
+        print("Reverse geocoding failed:", e)
+        return "地域不明"
+
 @app.post("/api/plan/<int:eid>")
 def generate_plan(eid):
     ev = Event.query.get_or_404(eid)
@@ -193,15 +220,24 @@ def generate_plan(eid):
     if spot_lat is None or spot_lng is None:
         return {"error": "集合スポットの位置情報が取得できませんでした。"}, 400
 
-    # ここから配車決める！
+    # 配車を決める
     carpool = make_carpool(rsvps)
 
-    # carpool = {ドライバー: [乗る子供, 子供, ...]} の形になっている
+    # 中間地点を求めるために、各車の子供たちの緯度・経度を集める
+    rsvp_dict = {r.name: (r.lat, r.lng) for r in rsvps}
+
     route_text = ""
     for driver, kids in carpool.items():
-        route_text += f"{driver}の車: {', '.join(kids)}\n"
+        # ドライバー自身の位置情報から地域名を取得する
+        driver_lat, driver_lng = rsvp_dict.get(driver, (None, None))
+        if driver_lat is not None and driver_lng is not None:
+            area_name = reverse_geocode(driver_lat, driver_lng)
+        else:
+            area_name = "地域不明"
 
-    # 行きと帰りに同じプランを保存する（今は行きだけでテストOK）
+        route_text += f"{driver}の車（{area_name}）: {', '.join(kids)}\n"
+
+    # 行きと帰り両方に保存する
     for d in ("go", "back"):
         Plan.query.filter_by(event_id=eid, direction=d).delete()
         db.session.add(Plan(event_id=eid, direction=d, body=route_text))
