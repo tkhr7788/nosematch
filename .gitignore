@@ -1,21 +1,2 @@
-# システム関連フォルダ
-Documents/
-My Music/
-My Pictures/
-My Videos/
-AppData/
-OneDrive/
-
-# 特定のファイルタイプ
-*.log
-*.DAT
-*.ini
-NTUSER.*
-
-# 特定のフォルダ
-.vscode/
-Downloads/
-desktop.ini
-
-# その他
-*Vault.lnk
+# SQLiteデータベースファイルを除外
+instance/*.db

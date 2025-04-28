@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>配車プラン作成ページ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="p-4">
+    <h1>配車プラン作成ページ</h1>
+
+    <!-- イベント一覧＋配車を決めるボタン -->
+    <table class="table">
+        <thead>
+            <tr>
+                <th>イベント名</th>
+                <th>日時</th>
+                <th>配車を決める</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in events %}
+            <tr>
+                <td>{{ e.title }}</td>
+                <td>{{ e.date.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <button class="btn btn-primary" onclick="generatePlan({{ e.id }})">
+                        配車を決める
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- ここから追加：作成済みプラン表示 -->
+    <h2 class="mt-5">現在の配車プラン一覧</h2>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>イベントID</th>
+                <th>方向（行き or 帰り）</th>
+                <th>ルート</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in plans %}
+            <tr>
+                <td>{{ p.event_id }}</td>
+                <td>{{ "行き" if p.direction == "go" else "帰り" }}</td>
+                <td>{{ p.body }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+<script>
+function generatePlan(eventId) {
+    if (!confirm('本当にこのイベントの配車を決めますか？')) return;
+
+    fetch(`/api/plan/${eventId}`, { method: 'POST' })
+    .then(response => {
+        if (response.ok) {
+            alert('配車プランが作成されました！');
+            location.reload();
+        } else {
+            alert('配車プラン作成に失敗しました。');
+        }
+    })
+    .catch(error => {
+        console.error('通信エラー:', error);
+        alert('通信エラーが発生しました。');
+    });
+}
+</script>
+
+</body>
+</html>
+
