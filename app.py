@@ -1,39 +1,38 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-from models import db, Event, RSVP, Plan
+from models import db, User, Event, RSVP, Plan
 from datetime import datetime
 import requests
 import urllib.parse
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+import random 
+import requests 
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///noritomo.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "supersecretkey"  # ★セッションのために追加
+app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
-# 住所から緯度・経度を取得する関数
+# ここにあなたのAPIキーを貼り付け！
+GOOGLE_MAPS_API_KEY = "  "
+
 def geocode_address(address):
-    base_url = "https://nominatim.openstreetmap.org/search?"
-    params = {
-        "q": address,
-        "format": "json",
-        "limit": 1,
-    }
-    headers = {"User-Agent": "noritomo/1.0"}
-    url = base_url + urllib.parse.urlencode(params)
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(address)}&key={GOOGLE_MAPS_API_KEY}"
     try:
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, timeout=5)
         res.raise_for_status()
         data = res.json()
-        if data:
-            return float(data[0]["lat"]), float(data[0]["lon"])
+        if data['status'] == 'OK':
+            location = data['results'][0]['geometry']['location']
+            return location['lat'], location['lng']
     except Exception as e:
-        print("Geocode failed:", e)
+        print("Google Geocode failed:", e)
     return None, None
 
-# OR-Tools最短ルート作成
 def make_route(rsvps, spot_lat, spot_lng):
-    points = [(r.lat, r.lng) for r in rsvps if r.lat and r.lng]
+    # 緯度・経度が両方存在する人だけを対象にする
+    valid_rsvps = [r for r in rsvps if r.lat is not None and r.lng is not None]
+    points = [(r.lat, r.lng) for r in valid_rsvps]
     points.append((spot_lat, spot_lng))
 
     def calc_dist(p1, p2):
@@ -65,20 +64,74 @@ def make_route(rsvps, spot_lat, spot_lng):
         return order
     else:
         return []
+def make_carpool(rsvps):
+    # 緯度・経度があって、行きに車を出せる人だけ対象
+    drivers = [r for r in rsvps if r.lat is not None and r.lng is not None and r.go_capacity > 0]
+    passengers = [r for r in rsvps if r.lat is not None and r.lng is not None]
+    random.shuffle(passengers)
 
-# ---------- ルーティング ----------
-@app.route("/", methods=["GET", "POST"])
-def index():
+    if not drivers:
+        return "車を出せる人がいません。"
+
+    # ドライバーを位置情報順に並べる（より現実的には、正確な距離で並べるのも可能）
+    drivers.sort(key=lambda r: (r.lat, r.lng))
+
+    car_assignments = {}  # {ドライバー名: [乗せる子供たちのリスト]}
+
+    driver_index = 0
+    for p in passengers:
+        while True:
+            driver = drivers[driver_index % len(drivers)]
+            if driver.name not in car_assignments:
+                car_assignments[driver.name] = []
+            if len(car_assignments[driver.name]) < driver.go_capacity:
+                car_assignments[driver.name].append(p.name)
+                break
+            else:
+                driver_index += 1
+
+    return car_assignments
+
+
+# ---------- ログイン・新規登録 ----------
+@app.route("/")
+def root():
+    return redirect(url_for("login"))
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
     if request.method == "POST":
-        session["username"] = request.form["username"]
-        return redirect(url_for("event_list"))
-    return render_template("index.html")
+        username = request.form["username"]
+        password = request.form["password"]
+        user = User.query.filter_by(username=username, password=password).first()
+        if user:
+            session["user_id"] = user.id
+            session["username"] = user.username
+            session["role"] = user.role
+            return redirect(url_for("event_list"))
+        else:
+            return render_template("login.html", error="ログイン失敗。IDまたはパスワードが違います。")
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        if User.query.filter_by(username=username).first():
+            return render_template("register.html", error="このIDは既に使われています。")
+        user = User(username=username, password=password, role="user")
+        db.session.add(user)
+        db.session.commit()
+        return redirect(url_for("login"))
+    return render_template("register.html")
 
 @app.route("/logout")
 def logout():
-    session.pop("username", None)
-    return redirect(url_for("index"))
+    session.clear()
+    return redirect(url_for("login"))
 
+# ---------- 配車システム本体 ----------
 @app.route("/events")
 def event_list():
     events = Event.query.order_by(Event.date.desc()).all()
@@ -102,6 +155,11 @@ def answer(eid):
     ev = Event.query.get_or_404(eid)
     if request.method == "POST":
         lat, lng = geocode_address(request.form["address"])
+        
+        # ここでチェック追加！
+        if lat is None or lng is None:
+            return render_template("answer.html", ev=ev, rsvps=RSVP.query.filter_by(event_id=eid).all(), error="住所が正しく認識できませんでした。もう一度確認してください。")
+
         r = RSVP(
             event_id=eid,
             name=request.form["name"],
@@ -110,17 +168,16 @@ def answer(eid):
             lng=lng,
             children=request.form["children"],
             child_cnt=int(request.form["child_cnt"]),
-            capacity=int(request.form["capacity"]),
-            go_ok=bool(request.form.get("go_ok")),
-            back_ok=bool(request.form.get("back_ok")),
-            pickup_only=bool(request.form.get("pickup_only")),
+            go_capacity=int(request.form["go_capacity"]),
+            back_capacity=int(request.form["back_capacity"]),
         )
         db.session.add(r)
         db.session.commit()
         return redirect(url_for("thanks", eid=eid))
+
     rsvps = RSVP.query.filter_by(event_id=eid).all()
-    username = session.get("username", "")
-    return render_template("answer.html", ev=ev, rsvps=rsvps, username=username)
+    return render_template("answer.html", ev=ev, rsvps=rsvps)
+
 
 @app.route("/events/<int:eid>/thanks")
 def thanks(eid):
@@ -133,6 +190,26 @@ def admin(eid):
     plans = Plan.query.filter_by(event_id=eid).all()
     return render_template("admin.html", ev=ev, rsvps=rsvps, plans=plans)
 
+def calculate_center(points):
+    lat_sum = sum(p[0] for p in points)
+    lng_sum = sum(p[1] for p in points)
+    n = len(points)
+    return (lat_sum / n, lng_sum / n)
+
+def reverse_geocode(lat, lng):
+    url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lng}"
+    headers = {"User-Agent": "noritomo/1.0"}
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        city = data.get('address', {}).get('city', '')
+        town = data.get('address', {}).get('suburb', '')
+        return f"{city}{town}周辺"
+    except Exception as e:
+        print("Reverse geocoding failed:", e)
+        return "地域不明"
+
 @app.post("/api/plan/<int:eid>")
 def generate_plan(eid):
     ev = Event.query.get_or_404(eid)
@@ -140,18 +217,40 @@ def generate_plan(eid):
 
     spot_lat, spot_lng = geocode_address(ev.spot)
 
-    order = make_route(rsvps, spot_lat, spot_lng)
+    if spot_lat is None or spot_lng is None:
+        return {"error": "集合スポットの位置情報が取得できませんでした。"}, 400
 
-    names = [r.name for r in rsvps]
-    names.append("集合スポット")
+    # 配車を決める
+    carpool = make_carpool(rsvps)
 
-    route_text = " → ".join([names[i] for i in order])
+    # 中間地点を求めるために、各車の子供たちの緯度・経度を集める
+    rsvp_dict = {r.name: (r.lat, r.lng) for r in rsvps}
 
+    route_text = ""
+    for driver, kids in carpool.items():
+        # ドライバー自身の位置情報から地域名を取得する
+        driver_lat, driver_lng = rsvp_dict.get(driver, (None, None))
+        if driver_lat is not None and driver_lng is not None:
+            area_name = reverse_geocode(driver_lat, driver_lng)
+        else:
+            area_name = "地域不明"
+
+        route_text += f"{driver}の車（{area_name}）: {', '.join(kids)}\n"
+
+    # 行きと帰り両方に保存する
     for d in ("go", "back"):
         Plan.query.filter_by(event_id=eid, direction=d).delete()
         db.session.add(Plan(event_id=eid, direction=d, body=route_text))
     db.session.commit()
+
     return {"ok": True}
+
+@app.route("/plans")
+def plan_list():
+    events = Event.query.order_by(Event.date.desc()).all()
+    plans = Plan.query.all()
+    return render_template("plans.html", events=events, plans=plans)
+
 
 if __name__ == "__main__":
     with app.app_context():
