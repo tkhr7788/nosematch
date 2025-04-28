@@ -14,7 +14,7 @@ app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
 # ここにあなたのAPIキーを貼り付け！
-GOOGLE_MAPS_API_KEY = "AIzaSyDb68LR-jJtG_QccO8RDLjZY-9408SpLzE"
+GOOGLE_MAPS_API_KEY = ""
 
 def geocode_address(address):
     url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(address)}&key={GOOGLE_MAPS_API_KEY}"
