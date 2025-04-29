@@ -8,21 +8,32 @@
 </head>
 <body class="bg-light d-flex flex-column justify-content-center align-items-center vh-100">
 
+  <!-- アプリ名と説明 -->
   <div class="text-center mb-4">
     <h1 class="fw-bold">のせマッチ</h1>
-    <p class="text-muted">クラブやイベントでの配車割り当てを簡単に行うアプリです！</p>
+    <p class="text-muted mb-0">子供の送迎をかんたん管理！</p>
+    <p class="text-muted">部活やイベントの配車をスムーズにサポート。</p>
   </div>
 
-  <div class="card p-4 shadow-sm" style="width: 100%; max-width: 400px;">
-    <h2 class="mb-3 text-center">ログイン</h2>
+  <!-- ログインカード -->
+  <div class="card p-4 shadow-sm border-0" style="width: 100%; max-width: 400px;">
+    <h2 class="mb-4 text-center">ログイン</h2>
 
     {% if error %}
       <div class="alert alert-danger">{{ error }}</div>
     {% endif %}
 
-    <form method="post" class="vstack gap-3">
-      <input type="text" name="username" class="form-control" placeholder="IDを入力" required>
-      <input type="password" name="password" class="form-control" placeholder="パスワードを入力" required>
+    <form method="post" class="vstack gap-4">
+      <div>
+        <label for="username" class="form-label d-block text-center mb-1">ID</label>
+        <input type="text" id="username" name="username" class="form-control" required>
+      </div>
+
+      <div>
+        <label for="password" class="form-label d-block text-center mb-1">パスワード</label>
+        <input type="password" id="password" name="password" class="form-control" required>
+      </div>
+
       <button type="submit" class="btn btn-primary w-100">サインイン</button>
     </form>
 
