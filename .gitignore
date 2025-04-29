@@ -1,2 +1,3 @@
 # SQLiteデータベースファイルを除外
 instance/*.db
+instance/noritomo.db
