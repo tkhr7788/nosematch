@@ -20,7 +20,7 @@
   <h1 class="mb-4">✅ 回答ありがとうございました！</h1>
 
   <div class="d-flex gap-3">
-    <a class="btn btn-primary" href="/">イベント一覧に戻る</a>
+    <a class="btn btn-primary" href="{{ url_for('event_list') }}">イベント一覧に戻る</a>
     <a class="btn btn-secondary" href="{{ url_for('answer', eid=eid) }}">回答を修正する</a>
   </div>
 

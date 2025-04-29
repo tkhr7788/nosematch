@@ -15,7 +15,16 @@ app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
 # ここにあなたのAPIキーを貼り付け！
+<<<<<<< HEAD
+GOOGLE_MAPS_API_KEY = ""
+
+def geo_distance(a, b):
+    """2 点間の直近似距離 (km)"""
+    # a, b は (lat, lng) タプル
+    return hypot(a[0]-b[0], a[1]-b[1]) * 111  # ざっくり 1° ≒ 111 km
+=======
 GOOGLE_MAPS_API_KEY = "YOUR_API_KEY"
+>>>>>>> 85eb1e866ff9fe8dcb08b3b19950883691999043
 
 # ----------------------- 便利関数 -----------------------
 def geocode_address(address):
