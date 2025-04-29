@@ -15,16 +15,12 @@ app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
 # ここにあなたのAPIキーを貼り付け！
-<<<<<<< HEAD
 GOOGLE_MAPS_API_KEY = ""
 
 def geo_distance(a, b):
     """2 点間の直近似距離 (km)"""
     # a, b は (lat, lng) タプル
     return hypot(a[0]-b[0], a[1]-b[1]) * 111  # ざっくり 1° ≒ 111 km
-=======
-GOOGLE_MAPS_API_KEY = "YOUR_API_KEY"
->>>>>>> 85eb1e866ff9fe8dcb08b3b19950883691999043
 
 # ----------------------- 便利関数 -----------------------
 def geocode_address(address):
@@ -246,36 +242,78 @@ def generate_plan(eid):
     ev = Event.query.get_or_404(eid)
     rsvps = RSVP.query.filter_by(event_id=eid).all()
 
-    spot_lat, spot_lng = geocode_address(ev.spot)
+    # RSVPデータを辞書化（位置情報用と、全体参照用の2つ）
+    rsvp_dict_coords = {r.name: (r.lat, r.lng) for r in rsvps}
+    rsvp_dict_full = {r.name: r for r in rsvps}
 
-    if spot_lat is None or spot_lng is None:
-        return {"error": "集合スポットの位置情報が取得できませんでした。"}, 400
+    for d in ('go', 'back'):
+        # 配車を決める
+        carpool, missed = assign_carpool_balance(rsvps, d)
+        if missed:
+            print(f"[WARN] {len(missed)}人の乗車割り当てに失敗しました")
 
-    carpool = make_carpool(rsvps)
-    rsvp_dict = {r.name: (r.lat, r.lng) for r in rsvps}
+        route_text = ""
+        for driver, kid_names in carpool.items():
+            # ドライバーの地域名を取得
+            if driver in rsvp_dict_coords:
+                area_name = reverse_geocode(*rsvp_dict_coords[driver])
+            else:
+                area_name = "地域不明"
 
-    route_text = ""
-    for driver, kids in carpool.items():
-        driver_lat, driver_lng = rsvp_dict.get(driver, (None, None))
-        if driver_lat is not None and driver_lng is not None:
-            area_name = reverse_geocode(driver_lat, driver_lng)
-        else:
-            area_name = "地域不明"
+            # 各kidのchildren（子どもの名前）をまとめる
+            child_names = []
+            for name in kid_names:
+                rsvp = rsvp_dict_full.get(name)
+                if rsvp:
+                    # 「子どもA1, 子どもA2」のような文字列をリスト化
+                    child_names.extend([c.strip() for c in rsvp.children.split(",")])
+                else:
+                    child_names.append(name)  # 念のため fallback
 
-        route_text += f"{driver}の車（{area_name}）: {', '.join(kids)}\n"
+            route_text += f"{driver}の車（{area_name}）：{', '.join(child_names)}\n"
 
     for d in ("go", "back"):
         Plan.query.filter_by(event_id=eid, direction=d).delete()
         db.session.add(Plan(event_id=eid, direction=d, body=route_text))
     db.session.commit()
-
     return {"ok": True}
 
+# ---------- 配車プラン一覧 ----------
 @app.route("/plans")
 def plan_list():
     events = Event.query.order_by(Event.date.desc()).all()
     plans = Plan.query.all()
     return render_template("plans.html", events=events, plans=plans)
+
+@app.route("/rsvp/<int:id>/edit", methods=["GET", "POST"])
+def edit_rsvp(id):
+    if session.get("role") != "admin":
+        return "権限がありません", 403  # 管理者じゃなかったら禁止
+    r = RSVP.query.get_or_404(id)
+    if request.method == "POST":
+        r.name = request.form["name"]
+        r.children = request.form["children"]
+        r.address = request.form["address"]
+        r.child_cnt = int(request.form["child_cnt"])
+        r.go_capacity = int(request.form["go_capacity"])
+        r.back_capacity = int(request.form["back_capacity"])
+        r.lat, r.lng = geocode_address(r.address)
+        db.session.commit()
+        return redirect(url_for("admin", eid=r.event_id))
+    return render_template("edit_rsvp.html", rsvp=r)
+
+
+@app.route("/rsvp/<int:id>/delete", methods=["POST"])
+def delete_rsvp(id):
+    if session.get("role") != "admin":
+        return "権限がありません", 403  # 管理者じゃなかったら禁止
+    r = RSVP.query.get_or_404(id)
+    eid = r.event_id
+    db.session.delete(r)
+    db.session.commit()
+    return redirect(url_for("admin", eid=eid))
+
+
 
 if __name__ == "__main__":
     with app.app_context():
