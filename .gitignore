@@ -1,3 +1,5 @@
 # SQLiteデータベースファイルを除外
 instance/*.db
 instance/noritomo.db
+__pycache__/
+__pycache__/
