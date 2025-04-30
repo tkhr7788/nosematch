@@ -1,3 +1,5 @@
 Flask
 Flask-SQLAlchemy
 qrcode[pil]
+requests==2.31.0
+ortools

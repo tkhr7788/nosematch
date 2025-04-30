@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from models import db, User, Event, RSVP, Plan
 from datetime import datetime
 import requests
@@ -6,6 +6,8 @@ import urllib.parse
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 import random 
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+from math import hypot 
 
 
 app = Flask(__name__)
@@ -14,26 +16,44 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
-# ここにあなたのAPIキーを貼り付け！
-GOOGLE_MAPS_API_KEY = ""
-
 def geo_distance(a, b):
     """2 点間の直近似距離 (km)"""
     # a, b は (lat, lng) タプル
     return hypot(a[0]-b[0], a[1]-b[1]) * 111  # ざっくり 1° ≒ 111 km
 
 # ----------------------- 便利関数 -----------------------
+# 定数としてキーをここに直接書く
+GOOGLE_MAPS_API_KEY = ""
+
 def geocode_address(address):
-    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(address)}&key={GOOGLE_MAPS_API_KEY}"
+    """Google Maps APIを使う。キーが無ければNominatimにフォールバック。"""
+
+    if GOOGLE_MAPS_API_KEY:
+        print("[INFO] Google API を使用します")
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(address)}&key={GOOGLE_MAPS_API_KEY}"
+        try:
+            res = requests.get(url, timeout=5)
+            res.raise_for_status()
+            data = res.json()
+            if data['status'] == 'OK':
+                loc = data['results'][0]['geometry']['location']
+                return loc['lat'], loc['lng']
+        except Exception as e:
+            print("[Google] Geocode failed:", e)
+
+    # フォールバック（Googleキーが無い or エラー）
+    print("[INFO] Nominatim (無料API) を使用します")
+    url = f"https://nominatim.openstreetmap.org/search?format=json&q={urllib.parse.quote(address)}"
+    headers = {"User-Agent": "nosematch/1.0"}
     try:
-        res = requests.get(url, timeout=5)
+        res = requests.get(url, headers=headers, timeout=5)
         res.raise_for_status()
-        data = res.json()
-        if data['status'] == 'OK':
-            location = data['results'][0]['geometry']['location']
-            return location['lat'], location['lng']
+        results = res.json()
+        if results:
+            return float(results[0]["lat"]), float(results[0]["lon"])
     except Exception as e:
-        print("Google Geocode failed:", e)
+        print("[Nominatim] Geocode failed:", e)
+
     return None, None
 
 def make_route(rsvps, spot_lat, spot_lng):
@@ -95,6 +115,44 @@ def make_carpool(rsvps):
                 driver_index += 1
 
     return car_assignments
+
+def assign_carpool_balance(rsvps, direction):
+    """
+    ① 3 km 以内なら同じドライバーへ優先乗車
+    ② 残りは各ドライバーの load を均等化
+    ③ 距離が近い順に割り振り
+    戻り値: (carpool_dict, missed_list)
+    """
+    drivers = [r for r in rsvps if getattr(r, f"{direction}_capacity") > 0]
+    children = [r for r in rsvps]              # RSVP 単位で扱う
+    avail = {d.name: getattr(d, f"{direction}_capacity") for d in drivers}
+    load  = {d.name: 0 for d in drivers}
+    loc   = {r.name: (r.lat, r.lng) for r in rsvps}
+    carpool, missed = {d.name: [] for d in drivers}, []
+
+    # ── Phase-1: 半径 3 km 以内は同乗優先 ──────────────────
+    for kid in children:
+        chosen, best_d = None, 1e9
+        for d in drivers:
+            if avail[d.name] == 0 or None in loc[kid.name] or None in loc[d.name]:
+                continue
+            dist = geo_distance(loc[kid.name], loc[d.name])
+            if dist <= 3 and (load[d.name], dist) < (load.get(chosen, 1e9), best_d):
+                chosen, best_d = d.name, dist
+        if chosen:
+            carpool[chosen].append(kid.name); load[chosen] += 1; avail[chosen] -= 1
+        else:
+            missed.append(kid)
+
+    # ── Phase-2: 残りを負担均等＆距離最短で割当て ───────────────
+    for kid in missed[:]:
+        cand = [d for d in drivers if avail[d.name] > 0 and None not in loc[d.name]]
+        if not cand: break
+        cand.sort(key=lambda d: (load[d.name], geo_distance(loc[kid.name], loc[d.name])))
+        chosen = cand[0].name
+        carpool[chosen].append(kid.name); load[chosen] += 1; avail[chosen] -= 1; missed.remove(kid)
+
+    return carpool, missed
 
 def reverse_geocode(lat, lng):
     url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lng}"
@@ -237,20 +295,27 @@ def admin(eid):
     plans = Plan.query.filter_by(event_id=eid).all()
     return render_template("admin.html", ev=ev, rsvps=rsvps, plans=plans)
 
+from flask import jsonify  # 忘れずに
+
 @app.post("/api/plan/<int:eid>")
 def generate_plan(eid):
     ev = Event.query.get_or_404(eid)
     rsvps = RSVP.query.filter_by(event_id=eid).all()
+    missed_total = 0 
 
     # RSVPデータを辞書化（位置情報用と、全体参照用の2つ）
     rsvp_dict_coords = {r.name: (r.lat, r.lng) for r in rsvps}
     rsvp_dict_full = {r.name: r for r in rsvps}
+
+    # "go" / "back" ごとに route_text を記録しておく
+    route_texts = {}
 
     for d in ('go', 'back'):
         # 配車を決める
         carpool, missed = assign_carpool_balance(rsvps, d)
         if missed:
             print(f"[WARN] {len(missed)}人の乗車割り当てに失敗しました")
+            missed_total += len(missed)
 
         route_text = ""
         for driver, kid_names in carpool.items():
@@ -272,11 +337,17 @@ def generate_plan(eid):
 
             route_text += f"{driver}の車（{area_name}）：{', '.join(child_names)}\n"
 
+        route_texts[d] = route_text  # ← go/back それぞれ保存
+
+    # DB 保存処理
     for d in ("go", "back"):
         Plan.query.filter_by(event_id=eid, direction=d).delete()
-        db.session.add(Plan(event_id=eid, direction=d, body=route_text))
+        db.session.add(Plan(event_id=eid, direction=d, body=route_texts.get(d, "")))
+
     db.session.commit()
-    return {"ok": True}
+
+    return jsonify(ok=True, missed=missed_total)  # JSONで返すだけ
+
 
 # ---------- 配車プラン一覧 ----------
 @app.route("/plans")
@@ -328,8 +399,14 @@ def history():
         return redirect(url_for("login"))
     return "<h1>履歴ページ（準備中）</h1>"
 
-
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    try:
+        app.run(host="0.0.0.0", port=port, debug=True)
+    except OSError as e:
+        if e.errno == 98:          # Address already in use
+            app.run(host="0.0.0.0", port=5001, debug=True)
+        else:
+            raise
+
+
