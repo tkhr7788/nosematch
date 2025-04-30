@@ -7,6 +7,13 @@
 </head>
 <body class="p-4">
 
+  {# ★ 1) フラッシュメッセージを alert で表示 #}
+  {% with msgs = get_flashed_messages(category_filter=['warning']) %}
+    {% for m in msgs %}
+      <script>alert('{{ m }}');</script>
+    {% endfor %}
+  {% endwith %}
+
   <!-- ====== ヘッダ ====== -->
   <div class="d-flex justify-content-between align-items-end mb-4">
     <h1>配車プラン作成ページ</h1>
@@ -28,7 +35,9 @@
         <td>{{ e.title }}</td>
         <td>{{ e.date.strftime('%Y年%m月%d日(%a) %H時%M分') }} 集合予定</td>
         <td class="text-start">
-          <button class="btn btn-primary btn-sm" onclick="generatePlan({{ e.id }})">配車を決める</button>
+          <button class="btn btn-primary btn-sm" onclick="generatePlan({{ e.id }})">
+            配車を決める
+          </button>
         </td>
       </tr>
       {% endfor %}
@@ -40,7 +49,7 @@
   <table class="table">
     <thead>
       <tr>
-        <th>イベント名</th>  <!-- ここをタイトル表示に変更 -->
+        <th>イベント名</th>
         <th>方向（行き or 帰り）</th>
         <th>ルート</th>
       </tr>
@@ -58,23 +67,26 @@
 
   <!-- ====== JS fetch ====== -->
   <script>
-  function generatePlan(eventId) {
-    if (!confirm('本当にこのイベントの配車を決めますか？')) return;
-
-    fetch(`/api/plan/${eventId}`, { method: 'POST' })
-      .then(r => {
-          if (r.ok) {
-              alert('配車しました！');          // ←文言だけ変更
-              location.reload();
+    function generatePlan(eventId) {
+      if (!confirm('本当にこのイベントの配車を決めますか？')) return;
+    
+      fetch(`/api/plan/${eventId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            if (data.missed > 0) {
+              alert(`⚠️ ${data.missed} 人分の席が不足しています`);
+            } else {
+              alert('配車しました！');
+            }
+            location.reload();
           } else {
-              alert('配車に失敗しました…');
+            alert('配車に失敗しました…');
           }
-      })
-      .catch(err => {
-          console.error(err);
-          alert('通信エラーが発生しました。');
-      });
-}
-  </script>
+        })
+        .catch(() => alert('通信エラーが発生しました。'));
+    }
+    </script>
+    
 </body>
 </html>

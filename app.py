@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from models import db, User, Event, RSVP, Plan
 from datetime import datetime
 import requests
@@ -277,20 +277,27 @@ def admin(eid):
     plans = Plan.query.filter_by(event_id=eid).all()
     return render_template("admin.html", ev=ev, rsvps=rsvps, plans=plans)
 
+from flask import jsonify  # 忘れずに
+
 @app.post("/api/plan/<int:eid>")
 def generate_plan(eid):
     ev = Event.query.get_or_404(eid)
     rsvps = RSVP.query.filter_by(event_id=eid).all()
+    missed_total = 0 
 
     # RSVPデータを辞書化（位置情報用と、全体参照用の2つ）
     rsvp_dict_coords = {r.name: (r.lat, r.lng) for r in rsvps}
     rsvp_dict_full = {r.name: r for r in rsvps}
+
+    # "go" / "back" ごとに route_text を記録しておく
+    route_texts = {}
 
     for d in ('go', 'back'):
         # 配車を決める
         carpool, missed = assign_carpool_balance(rsvps, d)
         if missed:
             print(f"[WARN] {len(missed)}人の乗車割り当てに失敗しました")
+            missed_total += len(missed)
 
         route_text = ""
         for driver, kid_names in carpool.items():
@@ -312,11 +319,17 @@ def generate_plan(eid):
 
             route_text += f"{driver}の車（{area_name}）：{', '.join(child_names)}\n"
 
+        route_texts[d] = route_text  # ← go/back それぞれ保存
+
+    # DB 保存処理
     for d in ("go", "back"):
         Plan.query.filter_by(event_id=eid, direction=d).delete()
-        db.session.add(Plan(event_id=eid, direction=d, body=route_text))
+        db.session.add(Plan(event_id=eid, direction=d, body=route_texts.get(d, "")))
+
     db.session.commit()
-    return {"ok": True}
+
+    return jsonify(ok=True, missed=missed_total)  # JSONで返すだけ
+
 
 # ---------- 配車プラン一覧 ----------
 @app.route("/plans")
