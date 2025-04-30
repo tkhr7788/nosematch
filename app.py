@@ -16,26 +16,44 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
-# ここにあなたのAPIキーを貼り付け！
-GOOGLE_MAPS_API_KEY = "AIzaSyB3MwG182JTtHn7exmLxV1okmwPktL85Dc"
-
 def geo_distance(a, b):
     """2 点間の直近似距離 (km)"""
     # a, b は (lat, lng) タプル
     return hypot(a[0]-b[0], a[1]-b[1]) * 111  # ざっくり 1° ≒ 111 km
 
 # ----------------------- 便利関数 -----------------------
+# 定数としてキーをここに直接書く
+GOOGLE_MAPS_API_KEY = ""
+
 def geocode_address(address):
-    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(address)}&key={GOOGLE_MAPS_API_KEY}"
+    """Google Maps APIを使う。キーが無ければNominatimにフォールバック。"""
+
+    if GOOGLE_MAPS_API_KEY:
+        print("[INFO] Google API を使用します")
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(address)}&key={GOOGLE_MAPS_API_KEY}"
+        try:
+            res = requests.get(url, timeout=5)
+            res.raise_for_status()
+            data = res.json()
+            if data['status'] == 'OK':
+                loc = data['results'][0]['geometry']['location']
+                return loc['lat'], loc['lng']
+        except Exception as e:
+            print("[Google] Geocode failed:", e)
+
+    # フォールバック（Googleキーが無い or エラー）
+    print("[INFO] Nominatim (無料API) を使用します")
+    url = f"https://nominatim.openstreetmap.org/search?format=json&q={urllib.parse.quote(address)}"
+    headers = {"User-Agent": "nosematch/1.0"}
     try:
-        res = requests.get(url, timeout=5)
+        res = requests.get(url, headers=headers, timeout=5)
         res.raise_for_status()
-        data = res.json()
-        if data['status'] == 'OK':
-            location = data['results'][0]['geometry']['location']
-            return location['lat'], location['lng']
+        results = res.json()
+        if results:
+            return float(results[0]["lat"]), float(results[0]["lon"])
     except Exception as e:
-        print("Google Geocode failed:", e)
+        print("[Nominatim] Geocode failed:", e)
+
     return None, None
 
 def make_route(rsvps, spot_lat, spot_lng):
