@@ -23,6 +23,29 @@
     <form method="post" class="vstack gap-3">
       <input type="text" name="username" class="form-control" placeholder="IDを入力" required>
       <input type="password" name="password" class="form-control" placeholder="パスワードを入力" required>
+
+      <!-- 役割選択 -->
+      <div>
+        <label class="form-label">アカウント種別</label>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="role" value="user" id="roleUser" checked>
+          <label class="form-check-label" for="roleUser">
+            一般ユーザー
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="role" value="admin" id="roleAdmin">
+          <label class="form-check-label" for="roleAdmin">
+            管理者
+          </label>
+        </div>
+      </div>
+
+      <!-- 招待コード入力欄 -->
+      <div id="inviteCodeField" style="display:none;">
+        <input type="text" name="invite_code" class="form-control" placeholder="招待コードを入力（管理者のみ）">
+      </div>
+
       <button type="submit" class="btn btn-success w-100">アカウントを作成する</button>
     </form>
 
@@ -31,7 +54,21 @@
     </div>
   </div>
 
+  <script>
+    // 管理者選択時に招待コード欄を表示
+    const roleRadios = document.querySelectorAll('input[name="role"]');
+    const inviteField = document.getElementById('inviteCodeField');
+
+    roleRadios.forEach(radio => {
+      radio.addEventListener('change', function() {
+        if (this.value === 'admin') {
+          inviteField.style.display = 'block';
+        } else {
+          inviteField.style.display = 'none';
+        }
+      });
+    });
+  </script>
+
 </body>
 </html>
-
-    

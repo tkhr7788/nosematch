@@ -1,80 +1,203 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>配車プラン作成ページ</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配車プラン作成ページ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        /* スタイルの調整 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            background-color: #f4f4f9;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background-color: #fff;
+            border-bottom: 1px solid #ddd;
+        }
+        header .btn {
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 16px;
+            color: #fff;
+        }
+        header .home-btn {
+            background-color: white; /* 白背景 */
+            color: #4FC3F7;  /* 水色文字 */
+            border: 2px solid #4FC3F7; /* 水色枠 */
+        }
+        header .logout-btn {
+            background-color: #888; /* グレー */
+        }
+        .container {
+            max-width: 90%;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .event-form {
+            margin-bottom: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .event-form h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .event-form label {
+            display: inline-block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-align: left;
+        }
+        .event-form input {
+            width: 48%;
+            padding: 10px;
+            margin-right: 4%;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+            background-color: #f9f9f9;
+            text-align: center;
+        }
+        .event-form button {
+            width: 40%; /* ボタン幅を40%に変更 */
+            padding: 12px;
+            background-color: #4FC3F7; /* 水色 */
+            color: white;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            margin: 1.5em auto 0 auto;
+            display: block;
+        }
+        .event-form button:hover {
+            background-color: #29B6F6;
+        }
+        .rides-list h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        /* イベント情報の枠 */
+        .event {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid #4FC3F7; /* 薄い水色の枠 */
+        }
+        .event p {
+            margin: 5px 0;
+        }
+        .event .event-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            align-items: center;
+            margin-top: 20px; /* 上の段に余裕を持たせる */
+        }
+        .event-buttons button {
+            width: auto;
+            padding: 10px 20px;
+            background-color: #4FC3F7; /* 水色 */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .event-buttons button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        /* スマホ用のスタイル */
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .event-form input, .event-form button {
+                font-size: 14px;
+                width: 100%;
+                margin-right: 0;
+            }
+        }
+    </style>
 </head>
-<body class="p-4">
+<body>
 
-  <!-- ====== ヘッダ ====== -->
-  <div class="d-flex justify-content-between align-items-end mb-4">
-    <h1>配車プラン作成ページ</h1>
-    <span class="fs-5 text-muted">{{ now_str }} 時点</span>
-  </div>
+    <!-- ヘッダー：TOPへとログアウトボタン -->
+    <header>
+        <a href="/" class="btn home-btn">🏠TOPへ</a>
+        <a href="/logout" class="btn logout-btn">ログアウト</a>
+    </header>
 
-  <!-- ====== イベント一覧 ====== -->
-  <table class="table">
-    <thead>
-      <tr>
-        <th>イベント名</th>
-        <th>日時</th>
-        <th class="text-start">配車を決める</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for e in events %}
-      <tr>
-        <td>{{ e.title }}</td>
-        <td>{{ e.date.strftime('%Y年%m月%d日(%a) %H時%M分') }} 集合予定</td>
-        <td class="text-start">
-          <button class="btn btn-primary btn-sm" onclick="generatePlan({{ e.id }})">配車を決める</button>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    <!-- コンテンツエリア -->
+    <div class="container">
+        <!-- 配車プラン作成フォーム -->
+        <div class="event-form">
+            <h2>配車プラン作成</h2>
+            <form action="/create_rides" method="POST">
+                <label for="event_name">イベント名:</label>
+                <input type="text" id="event_name" name="event_name" value="{{ event_name }}" readonly><br>
 
-  <!-- ====== 既存プラン一覧 ====== -->
-  <h2 class="mt-5">現在の配車プラン一覧</h2>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>イベント名</th>  <!-- ここをタイトル表示に変更 -->
-        <th>方向（行き or 帰り）</th>
-        <th>ルート</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in plans %}
-      <tr>
-        <td>{{ event_titles[p.event_id] }}</td>
-        <td>{{ "行き" if p.direction == "go" else "帰り" }}</td>
-        <td>{{ p.body | replace("\n", "<br>") | safe }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+                <label for="event_date">イベント日:</label>
+                <input type="date" id="event_date" name="event_date" value="{{ event_date }}" readonly><br>
 
-  <!-- ====== JS fetch ====== -->
-  <script>
-  function generatePlan(eventId) {
-    if (!confirm('本当にこのイベントの配車を決めますか？')) return;
+                <label for="event_location">イベント開催地:</label>
+                <input type="text" id="event_location" name="event_location" value="{{ event_location }}" readonly><br>
 
-    fetch(`/api/plan/${eventId}`, { method: 'POST' })
-      .then(r => {
-          if (r.ok) {
-              alert('配車しました！');          // ←文言だけ変更
-              location.reload();
-          } else {
-              alert('配車に失敗しました…');
-          }
-      })
-      .catch(err => {
-          console.error(err);
-          alert('通信エラーが発生しました。');
-      });
-}
-  </script>
+                <label for="event_time">集合時間:</label>
+                <input type="time" id="event_time" name="event_time" value="{{ event_time }}" readonly><br>
+
+                <label for="event_place">集合場所:</label>
+                <input type="text" id="event_place" name="event_place" value="{{ event_place }}" readonly><br>
+
+                <button type="submit">配車を決める</button>
+            </form>
+        </div>
+
+        <!-- 現在の配車プラン一覧 -->
+        <div class="rides-list">
+            <h2>現在の配車プラン一覧</h2>
+
+            <!-- イベントデータ（バックエンドから動的に取得）-->
+            {% for event in events %}
+            <div class="event">
+                <p>イベント名: {{ event.event_name }}</p>
+                <p>開催場所: {{ event.event_location }}</p>
+                <p>開催日: {{ event.event_date }}</p>
+                <p>開始時間: {{ event.event_time }}</p>
+
+                <div class="event-buttons">
+                    {% if event.has_ride_plan %}
+                    <!-- 配車プランが作成されている場合 -->
+                    <button onclick="window.location.href='/ride_plans/{{ event.id }}'">配車プランを確認</button>
+                    {% else %}
+                    <!-- 配車プランが未作成の場合 -->
+                    <button disabled>配車プラン未作成</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
 </body>
 </html>
