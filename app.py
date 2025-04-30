@@ -248,15 +248,25 @@ def event_list():
 @app.route("/events/new", methods=["GET", "POST"])
 def new_event():
     if request.method == "POST":
+        # 日付と時間を取得
+        date_str = request.form["date"]
+        hour = request.form["hour"]
+        minute = request.form["minute"]
+
+        # 開始日時の文字列を組み立ててdatetimeに変換
+        datetime_str = f"{date_str}T{hour}:{minute}"
+        date_obj = datetime.fromisoformat(datetime_str)
+
         e = Event(
             title=request.form["title"],
-            date=datetime.fromisoformat(request.form["date"]),
+            date=date_obj,
             spot=request.form["spot"],
         )
         db.session.add(e)
         db.session.commit()
         return redirect(url_for("event_list"))
     return render_template("new.html")
+
 
 @app.route("/events/<int:eid>", methods=["GET", "POST"])
 def answer(eid):
