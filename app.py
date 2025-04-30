@@ -6,6 +6,7 @@ import urllib.parse
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 import random 
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
 
 app = Flask(__name__)
@@ -328,8 +329,14 @@ def history():
         return redirect(url_for("login"))
     return "<h1>履歴ページ（準備中）</h1>"
 
-
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+
+    port = int(os.environ.get("PORT", 5000))
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=True
+    )
+
