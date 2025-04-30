@@ -16,7 +16,7 @@ app.config["SECRET_KEY"] = "supersecretkey"
 db.init_app(app)
 
 # ここにあなたのAPIキーを貼り付け！
-GOOGLE_MAPS_API_KEY = ""
+GOOGLE_MAPS_API_KEY = "AIzaSyB3MwG182JTtHn7exmLxV1okmwPktL85Dc"
 
 def geo_distance(a, b):
     """2 点間の直近似距離 (km)"""
