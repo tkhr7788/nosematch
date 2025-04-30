@@ -100,7 +100,7 @@ def make_carpool(rsvps):
 
 def assign_carpool_balance(rsvps, direction):
     """
-    ① 5 km 以内なら同じドライバーへ優先乗車
+    ① 3 km 以内なら同じドライバーへ優先乗車
     ② 残りは各ドライバーの load を均等化
     ③ 距離が近い順に割り振り
     戻り値: (carpool_dict, missed_list)
@@ -112,14 +112,14 @@ def assign_carpool_balance(rsvps, direction):
     loc   = {r.name: (r.lat, r.lng) for r in rsvps}
     carpool, missed = {d.name: [] for d in drivers}, []
 
-    # ── Phase-1: 半径 5 km 以内は同乗優先 ──────────────────
+    # ── Phase-1: 半径 3 km 以内は同乗優先 ──────────────────
     for kid in children:
         chosen, best_d = None, 1e9
         for d in drivers:
             if avail[d.name] == 0 or None in loc[kid.name] or None in loc[d.name]:
                 continue
             dist = geo_distance(loc[kid.name], loc[d.name])
-            if dist <= 5 and (load[d.name], dist) < (load.get(chosen, 1e9), best_d):
+            if dist <= 3 and (load[d.name], dist) < (load.get(chosen, 1e9), best_d):
                 chosen, best_d = d.name, dist
         if chosen:
             carpool[chosen].append(kid.name); load[chosen] += 1; avail[chosen] -= 1
