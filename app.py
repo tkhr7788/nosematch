@@ -282,8 +282,16 @@ def generate_plan(eid):
 @app.route("/plans")
 def plan_list():
     events = Event.query.order_by(Event.date.desc()).all()
-    plans = Plan.query.all()
-    return render_template("plans.html", events=events, plans=plans)
+    plans  = Plan.query.all()
+
+    # event_id → title だけの辞書を作る
+    event_titles = {e.id: e.title for e in events}
+
+    return render_template("plans.html",
+                           events=events,
+                           plans=plans,
+                           event_titles=event_titles)   # 追加
+
 
 @app.route("/rsvp/<int:id>/edit", methods=["GET", "POST"])
 def edit_rsvp(id):
@@ -313,6 +321,12 @@ def delete_rsvp(id):
     db.session.commit()
     return redirect(url_for("admin", eid=eid))
 
+# ---------- 管理者：履歴 ----------
+@app.route("/admin/history")
+def history():
+    if "user_id" not in session or session.get("role") != "admin":
+        return redirect(url_for("login"))
+    return "<h1>履歴ページ（準備中）</h1>"
 
 
 if __name__ == "__main__":
