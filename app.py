@@ -7,6 +7,7 @@ from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 import random 
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+from math import hypot 
 
 
 app = Flask(__name__)
@@ -96,6 +97,44 @@ def make_carpool(rsvps):
                 driver_index += 1
 
     return car_assignments
+
+def assign_carpool_balance(rsvps, direction):
+    """
+    ① 5 km 以内なら同じドライバーへ優先乗車
+    ② 残りは各ドライバーの load を均等化
+    ③ 距離が近い順に割り振り
+    戻り値: (carpool_dict, missed_list)
+    """
+    drivers = [r for r in rsvps if getattr(r, f"{direction}_capacity") > 0]
+    children = [r for r in rsvps]              # RSVP 単位で扱う
+    avail = {d.name: getattr(d, f"{direction}_capacity") for d in drivers}
+    load  = {d.name: 0 for d in drivers}
+    loc   = {r.name: (r.lat, r.lng) for r in rsvps}
+    carpool, missed = {d.name: [] for d in drivers}, []
+
+    # ── Phase-1: 半径 5 km 以内は同乗優先 ──────────────────
+    for kid in children:
+        chosen, best_d = None, 1e9
+        for d in drivers:
+            if avail[d.name] == 0 or None in loc[kid.name] or None in loc[d.name]:
+                continue
+            dist = geo_distance(loc[kid.name], loc[d.name])
+            if dist <= 5 and (load[d.name], dist) < (load.get(chosen, 1e9), best_d):
+                chosen, best_d = d.name, dist
+        if chosen:
+            carpool[chosen].append(kid.name); load[chosen] += 1; avail[chosen] -= 1
+        else:
+            missed.append(kid)
+
+    # ── Phase-2: 残りを負担均等＆距離最短で割当て ───────────────
+    for kid in missed[:]:
+        cand = [d for d in drivers if avail[d.name] > 0 and None not in loc[d.name]]
+        if not cand: break
+        cand.sort(key=lambda d: (load[d.name], geo_distance(loc[kid.name], loc[d.name])))
+        chosen = cand[0].name
+        carpool[chosen].append(kid.name); load[chosen] += 1; avail[chosen] -= 1; missed.remove(kid)
+
+    return carpool, missed
 
 def reverse_geocode(lat, lng):
     url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lng}"
@@ -330,13 +369,13 @@ def history():
     return "<h1>履歴ページ（準備中）</h1>"
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-
     port = int(os.environ.get("PORT", 5000))
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=True
-    )
+    try:
+        app.run(host="0.0.0.0", port=port, debug=True)
+    except OSError as e:
+        if e.errno == 98:          # Address already in use
+            app.run(host="0.0.0.0", port=5001, debug=True)
+        else:
+            raise
+
 
