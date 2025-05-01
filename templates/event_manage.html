@@ -127,9 +127,12 @@
     <div class="alert alert-info text-center">まだ回答がありません。</div>
     {% endif %}
 
-    <div class="text-center mt-4">
-      <a href="/events/{{ ev.id }}/admin" class="btn btn-secondary">管理者ページへ</a>
+    <div class="text-center my-4">
+      <form action="{{ url_for('delete_event', eid=ev.id) }}" method="post" onsubmit="return confirm('本当にこのイベントを削除しますか？');" style="display: inline-block;">
+        <button type="submit" class="btn btn-danger px-5 py-2" style="min-width: 200px;">イベントを削除</button>
+      </form>
     </div>
+    
   </div>
 
 <!-- ↓ここから追加：送りプラン・迎えプラン作成タブ -->

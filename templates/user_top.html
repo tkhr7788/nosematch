@@ -32,21 +32,32 @@
     <a href="/" class="btn btn-outline-primary btn-sm">🏠 TOPへ</a>
   </div>
 
-  <!-- メインコンテンツ -->
-  <div class="text-center content-wrapper">
-    <h2 class="mb-5 small-message">
-      {{ username }}さん<br>
-      イベント楽しんでください！
-    </h2>
+    <!-- ヘッダー -->
+    <header class="header">
+        <h1 class="app-title">のせマッチ</h1>
+        
+        <!-- 非リンク形式の安全なログアウトボタン -->
+        <form method="post" action="{{ url_for('logout') }}" class="logout-form">
+            <button type="submit" class="logout-btn">ログアウト</button>
+        </form>
+    </header>
 
-    <form method="post" action="{{ url_for('logout') }}" class="d-grid gap-4">
-      <button type="submit" class="btn btn-secondary btn-lg w-100">ログアウト</button>
-    </form>
+    <!-- メインコンテンツ -->
+    <main class="main-content text-center mt-5">
 
-    <div class="spacer d-grid">
-      <a href="{{ url_for('event_list') }}" class="btn btn-primary btn-lg w-100">イベント一覧を見る</a>
-    </div>
-  </div>
+        <h2 class="mb-5 small-message">
+            {{ username }}さん<br>
+            イベント楽しんでください！
+        </h2>
+
+        <div class="event-button">
+            <div class="icon-box mb-2">
+                <img src="{{ url_for('static', filename='images/icon1.png') }}" alt="イベントアイコン" style="width: 96px; height: 96px;">
+            </div>
+            <a href="{{ url_for('event_list') }}" class="btn btn-primary">イベント一覧を見る</a>
+        </div>
+
+    </main>
 
 </body>
 </html>

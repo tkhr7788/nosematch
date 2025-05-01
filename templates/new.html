@@ -39,17 +39,20 @@
 
             <!-- 開催時間（時・分プルダウン） -->
             <div class="d-flex gap-2" style="flex: 1;">
-              <select name="hour" class="form-select" required>
+              <select name="hour" required>
+                <option value="" disabled selected>-- 時</option>
                 {% for h in range(0, 24) %}
                   <option value="{{ "%02d"|format(h) }}">{{ "%02d"|format(h) }}時</option>
                 {% endfor %}
               </select>
-
-              <select name="minute" class="form-select" required>
+              
+              <select name="minute" required>
+                <option value="" disabled selected>-- 分</option>
                 {% for m in [0, 15, 30, 45] %}
                   <option value="{{ "%02d"|format(m) }}">{{ "%02d"|format(m) }}分</option>
                 {% endfor %}
               </select>
+              
             </div>
 
           </div>

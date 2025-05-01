@@ -16,11 +16,12 @@
     </div>
   
     <div class="d-flex justify-content-end mb-4">
-      
+      <div>
+        <a href="/events/new" class="btn btn-success me-2">＋ 新しいイベントを作る</a>
         {% if session.username %}
           <a href="/logout" class="btn btn-secondary">ログアウト </a>
         {% endif %}
-      
+      </div>
     </div>
   
     {% if events %}
@@ -51,7 +52,7 @@
   
               <!-- フッターにボタン -->
               <div class="card-footer bg-white border-0 text-center">
-                <a href="/events/{{ e.id }}" class="btn btn-sm btn-primary">詳細を見る</a>
+                <a href="{{ url_for('event_manage', eid=e.id) }}" class="btn btn-sm btn-primary">管理</a>
               </div>
   
             </div>
