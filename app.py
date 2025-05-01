@@ -433,14 +433,34 @@ def history():
         return redirect(url_for("login"))
     return "<h1>履歴ページ（準備中）</h1>"
 
+def init_db():
+    with app.app_context():
+        db.create_all()
+
+        # 初期ユーザーが存在しなければ追加
+        if not User.query.filter_by(username="admin").first():
+            admin = User(
+                username="admin",
+                password=generate_password_hash("admin123"),  # 実運用ではハッシュを使う
+                role="admin"
+            )
+            db.session.add(admin)
+            db.session.commit()
+            print("初期ユーザー admin を追加しました")
+        else:
+            print("初期ユーザー admin はすでに存在します")
+
 if __name__ == "__main__":
+    init_db()  # ← ここでテーブル作成＆admin登録
+
     port = int(os.environ.get("PORT", 5000))
     try:
         app.run(host="0.0.0.0", port=port, debug=True)
     except OSError as e:
-        if e.errno == 98:          # Address already in use
+        if e.errno == 98:  # Address already in use
             app.run(host="0.0.0.0", port=5001, debug=True)
         else:
             raise
+
 
 
