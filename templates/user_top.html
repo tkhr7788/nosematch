@@ -13,21 +13,29 @@
     <!-- ヘッダー -->
     <header class="header">
         <h1 class="app-title">のせマッチ</h1>
-        <a href="{{ url_for('logout') }}" class="logout-btn">ログアウト</a>
+        
+        <!-- 非リンク形式の安全なログアウトボタン -->
+        <form method="post" action="{{ url_for('logout') }}" class="logout-form">
+            <button type="submit" class="logout-btn">ログアウト</button>
+        </form>
     </header>
 
-<!-- メインコンテンツ -->
-<main class="main-content text-center mt-5">
-    <p class="welcome-message mb-4">ようこそ {{ username }} さん</p>
+    <!-- メインコンテンツ -->
+    <main class="main-content text-center mt-5">
 
-    <div class="event-button">
-        <div class="icon-box mb-2">
-            <img src="{{ url_for('static', filename='images/icon1.png') }}" alt="イベントアイコン" style="width: 96px; height: 96px;">
+        <h2 class="mb-5 small-message">
+            {{ username }}さん<br>
+            イベント楽しんでください！
+        </h2>
+
+        <div class="event-button">
+            <div class="icon-box mb-2">
+                <img src="{{ url_for('static', filename='images/icon1.png') }}" alt="イベントアイコン" style="width: 96px; height: 96px;">
+            </div>
+            <a href="{{ url_for('event_list') }}" class="btn btn-primary">イベント一覧を見る</a>
         </div>
-        <a href="{{ url_for('event_list') }}" class="btn btn-primary">イベント一覧を見る</a>
-    </div>
-</main>
 
+    </main>
 
 </body>
 </html>
