@@ -431,7 +431,7 @@ def delete_rsvp(id):
 def history():
     if "user_id" not in session or session.get("role") != "admin":
         return redirect(url_for("login"))
-    return "<h1>履歴ページ（準備中）</h1>"
+    return render_template("history.html")
 
 def init_db():
     with app.app_context():
