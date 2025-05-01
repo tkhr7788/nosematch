@@ -23,7 +23,7 @@ def geo_distance(a, b):
 
 # ----------------------- 便利関数 -----------------------
 # 定数としてキーをここに直接書く
-GOOGLE_MAPS_API_KEY = ""
+GOOGLE_MAPS_API_KEY = "AIzaSyAsWa07NpEhvqW7pzbTR8LKLJxXL8YxnrE"
 
 def geocode_address(address):
     """Google Maps APIを使う。キーが無ければNominatimにフォールバック。"""
@@ -245,6 +245,11 @@ def event_list():
     events = Event.query.order_by(Event.date.desc()).all()
     return render_template("event_list.html", events=events)
 
+@app.route("/admin/events")
+def admin_events():
+    events = Event.query.order_by(Event.date.desc()).all()
+    return render_template("admin_event_list.html", events=events)
+
 @app.route("/events/new", methods=["GET", "POST"])
 def new_event():
     if request.method == "POST":
@@ -284,6 +289,27 @@ def answer(eid):
     rsvps = RSVP.query.filter_by(event_id=eid).all()
     return render_template("answer.html", ev=ev, rsvps=rsvps)
 
+@app.route("/events/<int:eid>/delete", methods=["POST"])
+def delete_event(eid):
+    if session.get("role") != "admin":
+        return "権限がありません", 403
+    ev = Event.query.get_or_404(eid)
+
+    # 関連データも削除（任意）
+    RSVP.query.filter_by(event_id=eid).delete()
+    Plan.query.filter_by(event_id=eid).delete()
+
+    db.session.delete(ev)
+    db.session.commit()
+    return redirect(url_for("admin_events"))  # 一覧へ戻る
+
+
+@app.route("/events/<int:eid>/manage")
+def event_manage(eid):
+    ev = Event.query.get_or_404(eid)
+    rsvps = RSVP.query.filter_by(event_id=eid).all()
+    return render_template("event_manage.html", ev=ev, rsvps=rsvps)
+
 @app.route("/events/<int:eid>/thanks")
 def thanks(eid):
     return render_template("thanks.html", eid=eid)
@@ -294,8 +320,6 @@ def admin(eid):
     rsvps = RSVP.query.filter_by(event_id=eid).all()
     plans = Plan.query.filter_by(event_id=eid).all()
     return render_template("admin.html", ev=ev, rsvps=rsvps, plans=plans)
-
-from flask import jsonify  # 忘れずに
 
 @app.post("/api/plan/<int:eid>")
 def generate_plan(eid):

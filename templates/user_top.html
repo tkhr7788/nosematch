@@ -16,15 +16,18 @@
         <a href="{{ url_for('logout') }}" class="logout-btn">ログアウト</a>
     </header>
 
-    <!-- メインコンテンツ -->
-    <main class="main-content">
-        <p class="welcome-message">ようこそ {{ username }} さん</p>
+<!-- メインコンテンツ -->
+<main class="main-content text-center mt-5">
+    <p class="welcome-message mb-4">ようこそ {{ username }} さん</p>
 
-        <div class="event-button">
-            <div class="icon-box">□</div>
-            <a href="{{ url_for('event_list') }}" class="btn-primary">イベント一覧を見る</a>
+    <div class="event-button">
+        <div class="icon-box mb-2">
+            <img src="{{ url_for('static', filename='images/icon1.png') }}" alt="イベントアイコン" style="width: 96px; height: 96px;">
         </div>
-    </main>
+        <a href="{{ url_for('event_list') }}" class="btn btn-primary">イベント一覧を見る</a>
+    </div>
+</main>
+
 
 </body>
 </html>
