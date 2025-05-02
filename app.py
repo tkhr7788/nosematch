@@ -118,41 +118,65 @@ def make_carpool(rsvps):
 
 def assign_carpool_balance(rsvps, direction):
     """
-    ① 3 km 以内なら同じドライバーへ優先乗車
-    ② 残りは各ドライバーの load を均等化
-    ③ 距離が近い順に割り振り
-    戻り値: (carpool_dict, missed_list)
+    兄弟は同じ車を最優先。
+    モードA: グループ丸ごと乗車を試みる
+    モードB: 席が足りないときだけ兄弟分割を許容
+    戻り値: (carpool_dict, missed_list, split_warn_list)
     """
+    # --- ドライバー準備 ------------------------------------------------
     drivers = [r for r in rsvps if getattr(r, f"{direction}_capacity") > 0]
-    children = [r for r in rsvps]              # RSVP 単位で扱う
-    avail = {d.name: getattr(d, f"{direction}_capacity") for d in drivers}
-    load  = {d.name: 0 for d in drivers}
-    loc   = {r.name: (r.lat, r.lng) for r in rsvps}
-    carpool, missed = {d.name: [] for d in drivers}, []
+    loc     = {r.name: (r.lat, r.lng) for r in rsvps}
 
-    # ── Phase-1: 半径 3 km 以内は同乗優先 ──────────────────
-    for kid in children:
-        chosen, best_d = None, 1e9
-        for d in drivers:
-            if avail[d.name] == 0 or None in loc[kid.name] or None in loc[d.name]:
-                continue
-            dist = geo_distance(loc[kid.name], loc[d.name])
-            if dist <= 3 and (load[d.name], dist) < (load.get(chosen, 1e9), best_d):
-                chosen, best_d = d.name, dist
-        if chosen:
-            carpool[chosen].append(kid.name); load[chosen] += 1; avail[chosen] -= 1
+    carpool, seats = {}, {}
+    for d in drivers:
+        seats[d.name] = max(getattr(d, f"{direction}_capacity") - d.child_cnt, 0)
+        own_kids = [c.strip() for c in d.children.split(",")] if d.children else []
+        carpool[d.name] = own_kids.copy()
+
+    groups = [r for r in rsvps if r not in drivers]
+    split_warn, unassigned = [], []
+
+    # --- Phase-A: 兄弟セットで搭載できるか ------------------------------
+    for g in groups:
+        kids = [c.strip() for c in g.children.split(",")] if g.children else [g.name]
+        size = len(kids)
+
+        cand = [d for d in drivers if seats[d.name] >= size and None not in loc[d.name]]
+        if cand:
+            # 3 km 内 → 負担少 → 距離 の順
+            cand.sort(key=lambda d: (
+                geo_distance(loc[g.name], loc[d.name]) > 3,
+                len(carpool[d.name]),
+                geo_distance(loc[g.name], loc[d.name]),
+            ))
+            chosen = cand[0]
+            carpool[chosen.name].extend(kids)
+            seats[chosen.name] -= size
         else:
-            missed.append(kid)
+            unassigned.append((g, kids))      # 丸ごとは乗れない
 
-    # ── Phase-2: 残りを負担均等＆距離最短で割当て ───────────────
-    for kid in missed[:]:
-        cand = [d for d in drivers if avail[d.name] > 0 and None not in loc[d.name]]
-        if not cand: break
-        cand.sort(key=lambda d: (load[d.name], geo_distance(loc[kid.name], loc[d.name])))
-        chosen = cand[0].name
-        carpool[chosen].append(kid.name); load[chosen] += 1; avail[chosen] -= 1; missed.remove(kid)
+    # --- Phase-B: 兄弟をばらして席を埋める ------------------------------
+    missed = []
+    for g, kids in unassigned:
+        splitted = False
+        for kid in kids:
+            cand = [d for d in drivers if seats[d.name] > 0 and None not in loc[d.name]]
+            if not cand:
+                missed.append(kid)
+                continue
+            cand.sort(key=lambda d: (
+                len(carpool[d.name]),
+                geo_distance(loc[g.name], loc[d.name]),
+            ))
+            chosen = cand[0]
+            carpool[chosen.name].append(kid)
+            seats[chosen.name] -= 1
+            splitted = True
+        if splitted:
+            split_warn.append(g.name)
 
-    return carpool, missed
+    return carpool, missed, split_warn
+
 
 def reverse_geocode(lat, lng):
     url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lng}"
@@ -335,52 +359,41 @@ def admin(eid):
 def generate_plan(eid):
     ev = Event.query.get_or_404(eid)
     rsvps = RSVP.query.filter_by(event_id=eid).all()
-    missed_total = 0 
+    missed_total = 0
 
-    # RSVPデータを辞書化（位置情報用と、全体参照用の2つ）
+    # 位置情報と RSVP 本体を辞書化
     rsvp_dict_coords = {r.name: (r.lat, r.lng) for r in rsvps}
-    rsvp_dict_full = {r.name: r for r in rsvps}
+    rsvp_dict_full   = {r.name: r for r in rsvps}
 
-    # "go" / "back" ごとに route_text を記録しておく
-    route_texts = {}
+    route_texts = {}   # "go"/"back" 別に保存
 
-    for d in ('go', 'back'):
-        # 配車を決める
-        carpool, missed = assign_carpool_balance(rsvps, d)
-        if missed:
-            print(f"[WARN] {len(missed)}人の乗車割り当てに失敗しました")
-            missed_total += len(missed)
-
-        route_text = ""
-        for driver, kid_names in carpool.items():
-            # ドライバーの地域名を取得
-            if driver in rsvp_dict_coords:
-                area_name = reverse_geocode(*rsvp_dict_coords[driver])
-            else:
-                area_name = "地域不明"
-
-            # 各kidのchildren（子どもの名前）をまとめる
-            child_names = []
-            for name in kid_names:
-                rsvp = rsvp_dict_full.get(name)
-                if rsvp:
-                    # 「子どもA1, 子どもA2」のような文字列をリスト化
-                    child_names.extend([c.strip() for c in rsvp.children.split(",")])
-                else:
-                    child_names.append(name)  # 念のため fallback
-
-            route_text += f"{driver}の車（{area_name}）：{', '.join(child_names)}\n"
-
-        route_texts[d] = route_text  # ← go/back それぞれ保存
-
-    # DB 保存処理
     for d in ("go", "back"):
+        # assign_carpool_balance から 3 つ受取る
+        carpool, missed, split_warn = assign_carpool_balance(rsvps, d)
+        missed_total += len(missed)
+
+        # 兄弟分割があればヘッダ行を付加
+        header = ""
+        if split_warn:
+            header = f"⚠️兄弟バラバラの家庭があります: {', '.join(split_warn)}\n"
+
+        route_lines = []
+        for driver, kid_names in carpool.items():
+            # ドライバーの地域名
+            area_name = reverse_geocode(*rsvp_dict_coords.get(driver, (None, None)))
+
+            # kid_names には『子どもの名前』そのものが入っている
+            # 兄弟まとめて表示すれば OK
+            route_lines.append(f"{driver}の車（{area_name}）：{', '.join(kid_names)}")
+
+        route_texts[d] = header + "\n".join(route_lines)
+
+        # DB に保存（上書き）
         Plan.query.filter_by(event_id=eid, direction=d).delete()
-        db.session.add(Plan(event_id=eid, direction=d, body=route_texts.get(d, "")))
+        db.session.add(Plan(event_id=eid, direction=d, body=route_texts[d]))
 
     db.session.commit()
-
-    return jsonify(ok=True, missed=missed_total)  # JSONで返すだけ
+    return jsonify(ok=True, missed=missed_total)
 
 
 # ---------- 配車プラン一覧 ----------
